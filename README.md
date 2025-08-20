@@ -1,61 +1,73 @@
+# Dockerize node
 
-<div id="user-content-toc">
-  <ul align="left">
-    <summary><h1 style="display: inline-block">Bootstrap Website Example</h1></summary>
-  </ul>
-</div>
+1) create a Dockerfile for node
 
-<table>
-   <thead>
-        <tr>
-            <th>What's used in this app ?</th>
-            <th>How to run ?</th>
-            <th>Author</th>
-        </tr>
-    </thead>
-  <tbody>
-  <tr>
-    <td> 
-      <li> Bootstrap
-      <li> Css
-      <li> Html
-    </td>
-    <td>  <h4>Once you clone the project</h4>  
-      
- 1) open index.html with Go Live in vs code
+    ```dockerfile
+    FROM node:20-alpine
 
-    
-   </td>
-    <td> <li> <a href="https://github.com/AliDurul" target="_blank">Take a look at my other projects</a> <li> <a href="https://www.linkedin.com/in/ali-durul/" target="_blank">Visit me on Linkedin</a> 
-  </tr>
-  <tr>
-    <td colspan="3"><h3>What is this project about ?</h3> 
-<p>
-This website created by bootstrap as a example.
-</p>
-    </td>
-  </tr>
-      </tbody>
-</table>
+    # 1) Create non-root user
+    # addgroup --system appgroup: Creates a system group named appgroup.
+    # adduser --system --ingroup appgroup appuser: Creates a system user named appuser and adds it to appgroup.
+    # USER appuser: Tells Docker to run all subsequent commands (including your app) as appuser instead of root.
+    RUN addgroup -S appgroup && adduser -S -G appgroup appuser
 
+    # 2) Set working directory
+    WORKDIR /app
 
+    # Fix: Set ownership of /app to app user
+    RUN chown app:app /app
 
-<div id="user-content-toc">
-  <ul align="left">
-    <summary><h2>How does my project look</h2></summary>
-  </ul>
-</div>
+    # 3) Copy only manifest files first (better layer caching)
+    COPY --chown=app:app package*.json ./
 
+    # 4) Install deps (prod only for production images)
+    USER app
+    RUN npm ci --omit=dev
 
-[Live Link](https://bootstrap-website-example.vercel.app)
+    # 5) Copy the rest of the app
+    COPY --chown=app:app . .
 
-![bootstrapwebsite](https://github.com/AliDurul/Bootstrap-Website-Example/assets/80897590/42b26f58-2a5d-4ac8-835c-bb4ce6640383)
+    # 6) Runtime config
+    ENV NODE_ENV=production
+    EXPOSE 8000
+    CMD ["npm", "start"]
+    ```
 
-<div id="user-content-toc">
-  <ul align="left">
-    <summary><h2>Feedback and Collaboration</h2></summary>
-  </ul>
-</div>
-I value your feedback and suggestions. If you have any comments, questions, or ideas for improvement regarding this project or any of my other projects, please don't hesitate to reach out.<br>
-I'm always open to collaboration and welcome the opportunity to work on exciting projects together.<br>
-Thank you for visiting my project. I hope you have a wonderful experience exploring it, and I look forward to connecting with you soon!
+2) Create a .dockerignore
+
+    ```
+    node_modules
+    npm-debug.log
+    .git
+    .gitignore
+    Dockerfile
+    .dockerignore
+    .env
+    dist
+    coverage
+    .vscode
+    ```
+
+3) Build the image
+
+    ```sh
+    docker build -t blogapi:latest .
+    ```
+
+4) Run Container with .env
+    ```sh
+    docker run -d --restart unless-stopped --name blogapi --env-file .env -p 8000:8000 blogapi:latest
+    ```
+
+5) Inspect and interact
+
+- Logs (follow): `docker logs -f web-app`
+- Stop / remove: `docker stop web-app docker rm web-app`
+
+6) Optional: Dev mode (hot reload)
+
+7) Publihs image
+- `docker login`
+- `docker tag blogapi:latest <your-username>/blogapi:latest`
+- `docker push <your-username>/blogapi:latest`
+
